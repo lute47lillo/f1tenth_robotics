@@ -14,12 +14,13 @@ import follow_the_gap
 
 # choose your drivers here (1-4)
 #drivers = [simulator.SimpleDriver()]
-drivers = [follow_the_gap.GapFollower()]
-# drivers = [simulator.AnotherDriver()]
+#drivers = [follow_the_gap.GapFollower()]
+drivers = [simulator.Driver()]
+#drivers = [simulator.GapFollower()]
 
 # choose your racetrack here (TRACK_1, TRACK_2, TRACK_3, OBSTACLES)
-RACETRACK = 'TRACK_1'
-print("fsdf")
+RACETRACK = 'TRACK_2'
+
 if __name__ == '__main__':
     with open('maps/{}.yaml'.format(RACETRACK)) as map_conf_file:
         map_conf = yaml.load(map_conf_file, Loader=yaml.FullLoader)
@@ -36,22 +37,25 @@ if __name__ == '__main__':
 
     laptime = 0.0
     start = time.time()
-    
-    while not done:
-        actions = []
-        futures = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            for i, driver in enumerate(drivers):
-                futures.append(executor.submit(
-                    driver.process_lidar,
-                    obs['scans'][i])
-                )
-        for future in futures:
-            speed, steer = future.result()
-            actions.append([steer, speed])
-        actions = np.array(actions)
-        print("Steer: ", actions[0])
-        obs, step_reward, done, info = env.step(actions)
-        laptime += step_reward
-        env.render(mode='human')
-    print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
+    epochs = 10000
+    for x in range(epochs):
+        done = False
+        observation1, reward, done, info = env.reset(poses=poses)
+        while not done:
+            actions = []
+            futures = []
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                for i, driver in enumerate(drivers):
+                    futures.append(executor.submit(
+                        driver.process_lidar,
+                        obs['scans'][i])
+                    )
+            for future in futures:
+                speed, steer = future.result()
+                actions.append([steer, speed])
+            actions = np.array(actions)
+
+            obs, step_reward, done, info = env.step(actions)
+            laptime += step_reward
+            env.render(mode='human')
+        print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time()-start)
