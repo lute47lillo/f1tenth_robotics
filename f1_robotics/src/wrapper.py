@@ -18,7 +18,7 @@ def convert_range(value, input_range, output_range):
 class F110_Wrapped(gym.Wrapper):
     """
     This is a wrapper for the F1Tenth Gym environment intended
-    for only one car, but should be expanded to handle multi-agent scenarios
+    for only one car.
     """
 
     def __init__(self, env):
@@ -63,6 +63,7 @@ class F110_Wrapped(gym.Wrapper):
         self.step_count += 1
 
         # TODO -> do some reward engineering here and mess around with this
+        # GET LAP TIME ELLAPSED AND GIVE REWARD BASED ON THAT
         reward = 0
 
         #eoins reward function
@@ -91,18 +92,26 @@ class F110_Wrapped(gym.Wrapper):
         if observation['collisions'][0]:
             self.count = 0
             # reward = -100
-            reward = -1
+            reward = -5
 
         # end episode if car is spinning
-        if abs(observation['poses_theta'][0]) > self.max_theta:
-            done = True
+        # if abs(observation['poses_theta'][0]) > self.max_theta:
+        #     done = True
 
         """
         vel_magnitude = np.linalg.norm([observation['linear_vels_x'][0], observation['linear_vels_y'][0]])
         #print("V:",vel_magnitude)
         if vel_magnitude > 0.2:  # > 0 is very slow and safe, sometimes just stops in its tracks at corners
             reward += 0.1"""
-
+            
+            
+        # ang_magnitude = abs(observation['ang_vels_z'][0])
+        # #print("Ang:",ang_magnitude)
+        # if ang_magnitude > 0.75:
+        #     reward += -ang_magnitude/10
+        # ang_magnitude = abs(observation['ang_vels_z'][0])
+        # if ang_magnitude > 5:
+        #     reward = -(vel_magnitude/10)
 
         # penalise changes in car angular orientation (reward smoothness)
         """ang_magnitude = abs(observation['ang_vels_z'][0])
@@ -130,6 +139,13 @@ class F110_Wrapped(gym.Wrapper):
             if self.env.lap_counts[0] > 1:
                 reward += 1
                 self.env.lap_counts[0] = 0"""
+                
+        # if self.env.lap_counts[0] > 0:
+        #     self.count = 0
+        #     reward += 1
+        #     if self.env.lap_counts[0] > 1:
+        #         reward += 1
+        #         self.env.lap_counts[0] = 0
 
         return self.normalise_observations(observation['scans'][0]), reward, bool(done), info
 
