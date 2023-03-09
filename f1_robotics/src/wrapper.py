@@ -2,15 +2,11 @@ import gym
 import numpy as np
 
 from gym import spaces
-from pathlib import Path
-import yaml
-import concurrent.futures
 import drivers
-import time
 
 RACETRACK = 'TRACK_2'
-#drivers = [drivers.AnotherDriver()]
-drivers = [drivers.GapFollower()]
+
+driver = drivers.FollowTheGap()
 
 
 def convert_range(value, input_range, output_range):
@@ -63,28 +59,19 @@ class F110_Wrapped(gym.Wrapper):
 
     def step(self, action):
         # convert normalised actions (from RL algorithms) back to actual actions for simulator
-        #print(action)
         action_convert = self.un_normalise_actions(action)
-        #print(action_convert)
-        #print('Steering angle in degrees RL ALG: {}'.format((action_convert[0]/(np.pi/2))*90))
-        
         observation, _, done, info = self.env.step(np.array([action_convert]))
         reward = 0
         
-        actions = []
-        futures = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            for i, driver in enumerate(drivers):
-                futures.append(executor.submit(
-                    driver.process_lidar,
-                    observation['scans'][i])
-                )
-        for future in futures:
-            speed, steer = future.result()
-            actions.append([steer, speed])
+        # Process LiDAR scan to obtain reward based on adaptive method Follow the Gap
+        actions = []    
+        speed, steer = driver.process_lidar(observation['scans'][0])
+        
+        actions.append([steer, speed])
         actions = np.array(actions)
-        _, step_reward, _, _ = self.env.step(actions)
-        reward += step_reward
+        
+        _, lidar_reward, _, _ = self.env.step(actions)
+        reward += lidar_reward
 
         self.step_count += 1
 
@@ -93,18 +80,16 @@ class F110_Wrapped(gym.Wrapper):
             [observation['linear_vels_x'][0], observation['linear_vels_y'][0]])
         reward = vel_magnitude #/10 maybe include if speed is having too much of an effect
 
-        # reward function that returns percent of lap left, maybe try incorporate speed into the reward too
+        # Reward function that returns percent of lap left
         globwaypoints = np.genfromtxt(f"maps/Catalunya/Catalunya_centerline.csv", delimiter=',')
         
         if self.count < len(globwaypoints):
             wx, wy = globwaypoints[self.count][:2]
             X, Y = observation['poses_x'][0], observation['poses_y'][0]
             dist = np.sqrt(np.power((X - wx), 2) + np.power((Y - wy), 2))
-            #print("Dist:", dist, " to waypoint: ", self.count + 1)
             if dist > 2:
                 self.count += 1
                 complete = (self.count/len(globwaypoints)) * 0.5
-                #print("Percent complete: ", complete)
                 reward += complete
         else:
             self.count = 0
@@ -119,7 +104,6 @@ class F110_Wrapped(gym.Wrapper):
 
         # penalise changes in car angular orientation (reward smoothness)
         ang_magnitude = abs(observation['ang_vels_z'][0])
-        #print("Ang:",ang_magnitude)
         if ang_magnitude > 0.75:
             reward += -ang_magnitude/10
         ang_magnitude = abs(observation['ang_vels_z'][0])
@@ -128,9 +112,9 @@ class F110_Wrapped(gym.Wrapper):
 
         if self.env.lap_counts[0] > 0:
             self.count = 0
-            reward += 10
+            reward += 1
             if self.env.lap_counts[0] > 1:
-                reward += 10
+                reward += 1
                 self.env.lap_counts[0] = 0
 
         return self.normalise_observations(observation['scans'][0]), reward, bool(done), info
@@ -166,16 +150,10 @@ class F110_Wrapped(gym.Wrapper):
                                min(-rand_offset * np.pi / 2, 0) + np.pi / 2) + direction
         
         starting_angle = np.pi / 18 
-        # with open('maps/Catalunya/Catalunya_map.yaml') as map_conf_file:
-        #     map_conf = yaml.load(map_conf_file, Loader=yaml.FullLoader)
-        # scale = map_conf['resolution'] / map_conf['default_resolution']
-        # poses = np.array([[-1.25*scale + (i * 0.75*scale), 0., starting_angle] for i in range(1)])
         
         # reset car with chosen pose
-            
         observation, _, _, _ = self.env.reset(poses=np.array([[x, y, starting_angle]]))
         
-        # reward, done, info can't be included in the Gym format
         return self.normalise_observations(observation['scans'][0])
 
     def un_normalise_actions(self, actions):

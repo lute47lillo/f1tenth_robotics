@@ -9,6 +9,7 @@ from wrapper import F110_Wrapped
 
 MIN_EVAL_EPISODES = 100
 MAP_PATH = "maps/Austin/Austin_map"
+MAP_PATH = "maps/Catalunya/Catalunya_map"
 
 def evaluate():
 
@@ -22,7 +23,8 @@ def evaluate():
 
         # TODO: Add command arguments to test evaluation for different models based on algorithms
         #model = A2C.load("train_testA2C/best_model.zip")
-        model = PPO.load("train_test/best_model.zip")
+        model = PPO.load("train/pp0-f110-09-03-2023-09-58-45.zip")
+        # f1_robotics/src/train/BESTppo-f110-05-03-2023-20-04-31.zip
 
             # Simulate a few episodes and render them, ctrl-c to cancel an episode
         episode = 0

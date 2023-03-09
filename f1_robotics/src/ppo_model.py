@@ -12,10 +12,10 @@ from wrapper import F110_Wrapped
 from rewards import ThrottleMaxSpeedReward
 
 TRAIN_DIRECTORY = "./train"
-TRAIN_STEPS = 1.5 * np.power(10, 5)
+TRAIN_STEPS = 2 * np.power(10, 5)
 
 #TRAIN_STEPS = 1000
-SAVE_CHECK_FREQUENCY = int(TRAIN_STEPS / 10)
+SAVE_CHECK_FREQUENCY = int(TRAIN_STEPS / 50)
 MIN_EVAL_EPISODES = 100
 NUM_PROCESS = 4
 
@@ -57,7 +57,7 @@ class PPO_F1Tenth():
         env = ThrottleMaxSpeedReward(env, 0, int(0.75 * TRAIN_STEPS), 2.5)
         return env
     
-    def evaluate(self):
+    def evaluate(self, model):
 
         # Create evaluation environment (same as train environment in this case)
         eval_env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
@@ -92,7 +92,7 @@ class PPO_F1Tenth():
 
         # Choose RL model and policy here
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #RuntimeError: CUDA error: out of memory whenever I use gpu
-        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0001), gamma=0.99, gae_lambda=0.95, ent_coef=0.1,
+        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0003), gamma=0.99, gae_lambda=0.95, ent_coef=0.1,
                     vf_coef=0.5, max_grad_norm=0.5, verbose=1, device='cpu')
         
         # Create Evaluation Callback to save model
@@ -109,14 +109,16 @@ class PPO_F1Tenth():
         # Save model with unique timestamp
         timestamp = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
         model.save(f"./train/pp0-f110-{timestamp}")
+        
+        return model
             
     def main(self):
         
         # Train the model
-        self.train()
+        trained_model = self.train()
         
         # Evaluate the trained model
-        self.evaluate()
+        self.evaluate(trained_model)
 
 # necessary for Python multi-processing
 if __name__ == "__main__":
