@@ -11,6 +11,8 @@ from stable_baselines3.common.callbacks import EvalCallback
 from wrapper import F110_Wrapped
 from rewards import ThrottleMaxSpeedReward
 
+# Activate the environment: source robotics/bin/activate
+
 TRAIN_DIRECTORY = "./train"
 TRAIN_STEPS = 2 * np.power(10, 5)
 
@@ -93,12 +95,16 @@ class PPO_F1Tenth():
         # Choose RL model and policy here
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #RuntimeError: CUDA error: out of memory whenever I use gpu
         model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0003), gamma=0.99, gae_lambda=0.95, ent_coef=0.1,
-                    vf_coef=0.5, max_grad_norm=0.5, verbose=1, device='cpu')
+                    vf_coef=0.5, max_grad_norm=0.5, verbose=1, device='cpu', tensorboard_log="ppo_log/")
+        
+        # Create a Tensorboard Log to register the performance
+        #model.learn(total_timesteps=10000, tb_log_name="first_run")
+        
         
         # Create Evaluation Callback to save model
         eval_callback = EvalCallback(envs, best_model_save_path='./train_test/',
                                 log_path='./train_test/', eval_freq=10000,
-                                deterministic=True, render=False)
+                                deterministic=True, render=False) # Changed deterministis to False
 
         # Train model and record time taken
         start_time = time.time()

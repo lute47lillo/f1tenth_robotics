@@ -1,0 +1,29 @@
+"""
+    Questions
+"""
+1. Will it be better to implement PPO from scratch rather than initializing it from a stable-baselines3 library?
+2. What hyperparameters improve the performance?
+3. How many tries in average takes a trained model to complate a lap in the evaluation step?
+4. Does a car trained in X circuit transfer equally to Y circuit in terms of performance? Or does it matter where is trained?
+5. What does the literature say about model-free algorithms being capable of transfer learning? Only applies to model-based?
+6. What kind of reward engineer improves the performance? Based on vision, or declaration of specific steering and velocity actions?
+7. Why does it start by fast, and progressively slows down until reach a plateau around 58 mph (Fictional)?
+8. Can I train a model on different circuits on the same step?
+
+
+
+"""
+    Annotations
+"""
+2. Record performance across different circuits.
+3. Reward engineer the system by setting fixed velocity and steering angles.
+4. Record average velocity for laps where circuit is completed.
+5. TODO: Read  difference between TRPO, Maskable PPO, RecurrentPPO (PPO LSTM). Check if they improve performance.
+    - Need to install other repo from sb3: https://stable-baselines3.readthedocs.io/en/master/guide/sb3_contrib.html LINK
+6. Read about KL divergence.
+
+
+"""
+    DONE TASKS
+"""
+1. Implement a way of recording percentage of lap completed.

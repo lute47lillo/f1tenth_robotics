@@ -90,6 +90,7 @@ class F110_Wrapped(gym.Wrapper):
             if dist > 2:
                 self.count += 1
                 complete = (self.count/len(globwaypoints)) * 0.5
+                #print("Percent complete: ", int(complete*100))
                 reward += complete
         else:
             self.count = 0

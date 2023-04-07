@@ -4,8 +4,10 @@ import numpy as np
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import PPO, A2C
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.evaluation import evaluate_policy
 from wrapper import F110_Wrapped
+from stable_baselines3.common.monitor import Monitor
+from ppo_model import PPO_F1Tenth
 
 MIN_EVAL_EPISODES = 100
 MAP_PATH = "maps/Austin/Austin_map"
@@ -20,24 +22,51 @@ def evaluate():
         # Wrap evaluation environment
         eval_env = F110_Wrapped(eval_env)
         eval_env.seed(np.random.randint(pow(2, 31) - 1))
-
+        
+        # Wrap environment on Monitor environment for helper functions
+        eval_env = Monitor(eval_env)
+        
         # TODO: Add command arguments to test evaluation for different models based on algorithms
+        
         #model = A2C.load("train_testA2C/best_model.zip")
-        model = PPO.load("train/pp0-f110-09-03-2023-09-58-45.zip")
-        # f1_robotics/src/train/BESTppo-f110-05-03-2023-20-04-31.zip
+        model = PPO.load("train/pp0-f110-06-04-2023-20-40-47.zip")
 
-            # Simulate a few episodes and render them, ctrl-c to cancel an episode
-        episode = 0
-        while episode < MIN_EVAL_EPISODES:
-            try:
-                episode += 1
-                obs = eval_env.reset()
-                done = False
-                while not done:
-                    action, _ = model.predict(obs)
-                    obs, reward, done, _ = eval_env.step(action)
-                    eval_env.render()
-            except KeyboardInterrupt:
-                break
+        # Use Helper function from sb3 library to understand the evaluation
+        policy_evaluation = evaluate_policy(model, eval_env, n_eval_episodes=10,
+                                            deterministic=False, render=True, callback=None,
+                                            reward_threshold=None, return_episode_rewards=True, warn=True)
+        
+        print(policy_evaluation)
+        
+        '''
+        Mean reward per episode, std of reward per episode. Returns ([float], [int]) when return_episode_rewards is True,
+        first list containing per-episode rewards and second containing per-episode lengths (in number of steps).
+        '''
+        """
+        <!-- Per-Episode Rewards -->
+        ([22749.539981648326, 2129.740277186036, 45.35590974986553, 30.370328813791275, 71.25622265040874,
+        1.7452108040452003, 41.217375092208385, 33.01420879364014, 20.477021977305412, 29.976446375250816,
+        2912.7717652767897, 60.80717408657074, 37.61787620186806, 39.57091834396124, 2243.0198917090893]
+        
+        <! -- Per-Episode Length (n_steps) -->
+        [2820, 294, 26, 25, 32,
+        10, 29, 24, 21, 25,
+        398, 32, 27, 26, 345])
+        
+        Observe that 2820 -> 22749 is a complete+ lap.
+        """
+        # Simulate a few episodes and render them, ctrl-c to cancel an episode
+        # episode = 0
+        # while episode < MIN_EVAL_EPISODES:
+        #     try:
+        #         episode += 1
+        #         obs = eval_env.reset()
+        #         done = False
+        #         while not done:
+        #             action, _ = model.predict(obs)
+        #             obs, reward, done, _ = eval_env.step(action)
+        #             eval_env.render()
+        #     except KeyboardInterrupt:
+        #         break
                 
 evaluate()
