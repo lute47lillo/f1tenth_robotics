@@ -39,7 +39,8 @@ class F110_Wrapped(gym.Wrapper):
         self.s_min = self.env.params['s_min']
         self.s_max = self.env.params['s_max']
         self.v_min = self.env.params['v_min']
-        self.v_max = self.env.params['v_max']
+        #self.v_max = self.env.params['v_max']
+        self.v_max = 8.0
         self.lidar_min = 0
         self.lidar_max = 30  # see ScanSimulator2D max_range
 

@@ -15,7 +15,7 @@ from rewards import ThrottleMaxSpeedReward
 # Activate the environment: source robotics/bin/activate
 
 TRAIN_DIRECTORY = "./train"
-TRAIN_STEPS = 4 * np.power(10, 5)
+TRAIN_STEPS = 10 * np.power(10, 5)
 
 #TRAIN_STEPS = 1000
 SAVE_CHECK_FREQUENCY = int(TRAIN_STEPS / 50)
@@ -58,29 +58,8 @@ class PPO_F1Tenth():
         
         # Wrap basic gym with RL functions
         env = F110_Wrapped(env)
-        env = ThrottleMaxSpeedReward(env, 0, int(0.75 * TRAIN_STEPS), 1)
+        env = ThrottleMaxSpeedReward(env, 0, int(0.85 * TRAIN_STEPS), 1)
         return env
-    
-    def evaluate_lstm(self, model):
-        # Create evaluation environment (same as train environment in this case)
-        eval_env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
-                        map_ext=".png", num_agents=1)
-
-        # Wrap evaluation environment
-        eval_env = F110_Wrapped(eval_env)
-        eval_env.seed(np.random.randint(pow(2, 31) - 1))
-        model = model.load("train_test/best_model")
-              # cell and hidden state of the LSTM
-        lstm_states = None
-        num_envs = 1
-        obs = eval_env.reset()
-        # Episode start signals are used to reset the lstm states
-        episode_starts = np.ones((num_envs,), dtype=bool)
-        while True:
-            action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
-            obs, rewards, dones, info = eval_env.step(action)
-            episode_starts = dones
-            eval_env.render()
         
     def evaluate(self, model):
 
@@ -121,9 +100,9 @@ class PPO_F1Tenth():
         #model = TRPO("MlpPolicy", envs, verbose=1, learning_rate=self.linear_schedule(0.0003), gamma=0.99, gae_lambda=0.935, 
         #            device='cpu', tensorboard_log="ppo_log/", target_kl=0.035)
         
-        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0005), gamma=0.98, n_steps=4096,
+        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0008), gamma=0.98, n_steps=4096,
                     gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.85, clip_range=0.3,
-                    normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/", device='cpu', target_kl=0.25)
+                    normalize_advantage=False, verbose=1, use_sde=True, tensorboard_log="ppo_log/", device='cpu', target_kl=0.235)
        
         
         # Create Evaluation Callback to save model
