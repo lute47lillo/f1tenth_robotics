@@ -4,7 +4,8 @@ import numpy as np
 import torch
 from typing import Callable
 from datetime import datetime
-from stable_baselines3 import PPO, A2C
+from stable_baselines3 import PPO
+from sb3_contrib import TRPO, RecurrentPPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
@@ -14,14 +15,15 @@ from rewards import ThrottleMaxSpeedReward
 # Activate the environment: source robotics/bin/activate
 
 TRAIN_DIRECTORY = "./train"
-TRAIN_STEPS = 2 * np.power(10, 5)
+TRAIN_STEPS = 4 * np.power(10, 5)
 
 #TRAIN_STEPS = 1000
 SAVE_CHECK_FREQUENCY = int(TRAIN_STEPS / 50)
 MIN_EVAL_EPISODES = 100
 NUM_PROCESS = 4
 
-MAP_PATH = "maps/Catalunya/Catalunya_map"
+#MAP_PATH = "maps/Catalunya/Catalunya_map"
+MAP_PATH = "maps/TRACK_2"
 MAP_EXTENSION = ".png"
 
 # "maps/{}".format(RACETRACK)
@@ -56,9 +58,30 @@ class PPO_F1Tenth():
         
         # Wrap basic gym with RL functions
         env = F110_Wrapped(env)
-        env = ThrottleMaxSpeedReward(env, 0, int(0.75 * TRAIN_STEPS), 2.5)
+        env = ThrottleMaxSpeedReward(env, 0, int(0.75 * TRAIN_STEPS), 1)
         return env
     
+    def evaluate_lstm(self, model):
+        # Create evaluation environment (same as train environment in this case)
+        eval_env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
+                        map_ext=".png", num_agents=1)
+
+        # Wrap evaluation environment
+        eval_env = F110_Wrapped(eval_env)
+        eval_env.seed(np.random.randint(pow(2, 31) - 1))
+        model = model.load("train_test/best_model")
+              # cell and hidden state of the LSTM
+        lstm_states = None
+        num_envs = 1
+        obs = eval_env.reset()
+        # Episode start signals are used to reset the lstm states
+        episode_starts = np.ones((num_envs,), dtype=bool)
+        while True:
+            action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
+            obs, rewards, dones, info = eval_env.step(action)
+            episode_starts = dones
+            eval_env.render()
+        
     def evaluate(self, model):
 
         # Create evaluation environment (same as train environment in this case)
@@ -94,16 +117,18 @@ class PPO_F1Tenth():
 
         # Choose RL model and policy here
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #RuntimeError: CUDA error: out of memory whenever I use gpu
-        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0003), gamma=0.99, gae_lambda=0.95, ent_coef=0.1,
-                    vf_coef=0.5, max_grad_norm=0.5, verbose=1, device='cpu', tensorboard_log="ppo_log/")
+       
+        #model = TRPO("MlpPolicy", envs, verbose=1, learning_rate=self.linear_schedule(0.0003), gamma=0.99, gae_lambda=0.935, 
+        #            device='cpu', tensorboard_log="ppo_log/", target_kl=0.035)
         
-        # Create a Tensorboard Log to register the performance
-        #model.learn(total_timesteps=10000, tb_log_name="first_run")
-        
+        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0005), gamma=0.98, n_steps=4096,
+                    gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.85, clip_range=0.3,
+                    normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/", device='cpu', target_kl=0.25)
+       
         
         # Create Evaluation Callback to save model
         eval_callback = EvalCallback(envs, best_model_save_path='./train_test/',
-                                log_path='./train_test/', eval_freq=10000,
+                                log_path='./train_test/', eval_freq=5000,
                                 deterministic=True, render=False) # Changed deterministis to False
 
         # Train model and record time taken
@@ -114,7 +139,8 @@ class PPO_F1Tenth():
 
         # Save model with unique timestamp
         timestamp = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
-        model.save(f"./train/pp0-f110-{timestamp}")
+        model.save(f"./train/pp0_rew-f110-{timestamp}")
+        #model.save(f"./train/trp0-f110-{timestamp}")
         
         return model
             
@@ -124,6 +150,7 @@ class PPO_F1Tenth():
         trained_model = self.train()
         
         # Evaluate the trained model
+        #self.evaluate_lstm(trained_model)
         self.evaluate(trained_model)
 
 # necessary for Python multi-processing

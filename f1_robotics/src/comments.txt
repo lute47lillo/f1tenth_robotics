@@ -27,3 +27,10 @@
     DONE TASKS
 """
 1. Implement a way of recording percentage of lap completed.
+
+
+"""
+    LOGS
+"""
+PPO3
+    ent_coef (beta) = 0.15

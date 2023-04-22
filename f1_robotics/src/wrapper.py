@@ -3,6 +3,7 @@ import numpy as np
 
 from gym import spaces
 import drivers
+import f110_gym.envs.laser_models as laser
 
 RACETRACK = 'TRACK_2'
 
@@ -58,19 +59,32 @@ class F110_Wrapped(gym.Wrapper):
         self.count = 0
 
     def step(self, action):
+        
         # convert normalised actions (from RL algorithms) back to actual actions for simulator
         action_convert = self.un_normalise_actions(action)
-        observation, _, done, info = self.env.step(np.array([action_convert]))
-        reward = 0
+        
+        #print(action_convert)
+        obs, _, _, _ = self.env.step(np.array([action_convert]))
+        ranges_scan = obs['scans'][0]
+        
+        #print(observation['scans'][0])
+        # reward = lidar_reward
         
         # Process LiDAR scan to obtain reward based on adaptive method Follow the Gap
         actions = []    
-        speed, steer = driver.process_lidar(observation['scans'][0])
+        speed, steer = driver.process_lidar(ranges_scan, action_convert)
+        reward = 0
         
         actions.append([steer, speed])
         actions = np.array(actions)
         
-        _, lidar_reward, _, _ = self.env.step(actions)
+        # actions.append(steer)
+        # actions.append(speed)
+        
+        # self.un_normalise_actions(actions)
+        # print(actions)
+    
+        observation, lidar_reward, done, info = self.env.step(actions)
         reward += lidar_reward
 
         self.step_count += 1
@@ -81,19 +95,19 @@ class F110_Wrapped(gym.Wrapper):
         reward = vel_magnitude #/10 maybe include if speed is having too much of an effect
 
         # Reward function that returns percent of lap left
-        globwaypoints = np.genfromtxt(f"maps/Catalunya/Catalunya_centerline.csv", delimiter=',')
+        # globwaypoints = np.genfromtxt(f"maps/Catalunya/Catalunya_centerline.csv", delimiter=',')
         
-        if self.count < len(globwaypoints):
-            wx, wy = globwaypoints[self.count][:2]
-            X, Y = observation['poses_x'][0], observation['poses_y'][0]
-            dist = np.sqrt(np.power((X - wx), 2) + np.power((Y - wy), 2))
-            if dist > 2:
-                self.count += 1
-                complete = (self.count/len(globwaypoints)) * 0.5
-                #print("Percent complete: ", int(complete*100))
-                reward += complete
-        else:
-            self.count = 0
+        # if self.count < len(globwaypoints):
+        #     wx, wy = globwaypoints[self.count][:2]
+        #     X, Y = observation['poses_x'][0], observation['poses_y'][0]
+        #     dist = np.sqrt(np.power((X - wx), 2) + np.power((Y - wy), 2))
+        #     if dist > 2:
+        #         self.count += 1
+        #         complete = (self.count/len(globwaypoints)) * 0.5
+        #         #print("Percent complete: ", int(complete*100))
+        #         reward += complete
+        # else:
+        #     self.count = 0
             
         if observation['collisions'][0]:
             self.count = 0
@@ -115,15 +129,14 @@ class F110_Wrapped(gym.Wrapper):
             self.count = 0
             reward += 1
             if self.env.lap_counts[0] > 1:
-                reward += 1
+                reward += 2
                 self.env.lap_counts[0] = 0
-
-        return self.normalise_observations(observation['scans'][0]), reward, bool(done), info
+                
+        lidar_ranges = observation['scans'][0]
+        obs = self.normalise_observations(lidar_ranges)
+        return obs, reward, bool(done), info
 
     def reset(self, start_xy=None, direction=None):
-        # should start off in slightly different position every time
-        # position car anywhere along line from wall to wall facing
-        # car will never face backwards, can face forwards at an angle
 
         # start from origin if no pose input
         if start_xy is None:
@@ -145,12 +158,8 @@ class F110_Wrapped(gym.Wrapper):
 
         # convert position along line to position between walls at current point
         x, y = start_xy + rand_offset_scaled * np.array([1, slope]) / magnitude
-
-        # point car in random forward direction, not aiming at walls
-        t = -np.random.uniform(max(-rand_offset * np.pi / 2, 0) - np.pi / 2,
-                               min(-rand_offset * np.pi / 2, 0) + np.pi / 2) + direction
         
-        starting_angle = np.pi / 18 
+        starting_angle = 1.5708
         
         # reset car with chosen pose
         observation, _, _, _ = self.env.reset(poses=np.array([[x, y, starting_angle]]))

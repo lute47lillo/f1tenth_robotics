@@ -20,8 +20,10 @@ class FollowTheGap:
         ranges[start:end] = 0
         return ranges
         
-    def process_lidar(self, ranges):
+    def process_lidar(self, ranges, actions):
     
+        steer_ppo, speed_ppo = actions
+        
         # The angles between each of the LiDAR points
         angle_LiDAR = (2*np.pi) / len(ranges)
         
@@ -57,11 +59,12 @@ class FollowTheGap:
         scan_angle = (best_gap - (len(range_bubble)/2)) * angle_LiDAR
         steering_angle = scan_angle / 2
   
-        angle_straight = np.pi / 18 
+        angle_straight = 1.5708
+         
         # Corner speed
         if abs(steering_angle) > angle_straight:
-            speed = 4
+            speed = speed_ppo/2
         else: # Straight line speed
-            speed = 8
+            speed = speed_ppo
         
         return speed, steering_angle
