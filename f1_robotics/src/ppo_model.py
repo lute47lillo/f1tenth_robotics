@@ -5,29 +5,23 @@ import torch
 from typing import Callable
 from datetime import datetime
 from stable_baselines3 import PPO
-from sb3_contrib import TRPO, RecurrentPPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
 from wrapper import F110_Wrapped
-from rewards import ThrottleMaxSpeedReward
 
 # Activate the environment: source robotics/bin/activate
 
-TRAIN_DIRECTORY = "./train"
+TRAIN_DIRECTORY = "./train/ppo_work"
 TRAIN_STEPS = 10 * np.power(10, 5)
 
-#TRAIN_STEPS = 1000
-SAVE_CHECK_FREQUENCY = int(TRAIN_STEPS / 50)
-MIN_EVAL_EPISODES = 100
+SAVE_CHECK_FREQUENCY = int(TRAIN_STEPS / 100)
+MIN_EVAL_EPISODES = 10
 NUM_PROCESS = 4
 
-#MAP_PATH = "maps/Catalunya/Catalunya_map"
-MAP_PATH = "maps/TRACK_2"
+MAP_PATH = "maps/Catalunya/Catalunya_map"
+#MAP_PATH = "maps/TRACK_1"
 MAP_EXTENSION = ".png"
-
-# "maps/{}".format(RACETRACK)
-RACETRACK = 'TRACK_2'
 
 class PPO_F1Tenth():
     
@@ -57,8 +51,7 @@ class PPO_F1Tenth():
                     map_ext=".png", num_agents=1)
         
         # Wrap basic gym with RL functions
-        env = F110_Wrapped(env)
-        env = ThrottleMaxSpeedReward(env, 0, int(0.85 * TRAIN_STEPS), 1)
+        env = F110_Wrapped(env, 0, int(0.85 * TRAIN_STEPS), 1)
         return env
         
     def evaluate(self, model):
@@ -68,7 +61,7 @@ class PPO_F1Tenth():
                         map_ext=".png", num_agents=1)
 
         # Wrap evaluation environment
-        eval_env = F110_Wrapped(eval_env)
+        eval_env = F110_Wrapped(eval_env, 0, int(0.85 * TRAIN_STEPS), 1)
         eval_env.seed(np.random.randint(pow(2, 31) - 1))
         model = model.load("train_test/best_model")
 
@@ -96,14 +89,14 @@ class PPO_F1Tenth():
 
         # Choose RL model and policy here
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #RuntimeError: CUDA error: out of memory whenever I use gpu
-       
-        #model = TRPO("MlpPolicy", envs, verbose=1, learning_rate=self.linear_schedule(0.0003), gamma=0.99, gae_lambda=0.935, 
-        #            device='cpu', tensorboard_log="ppo_log/", target_kl=0.035)
         
-        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0008), gamma=0.98, n_steps=4096,
-                    gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.85, clip_range=0.3,
-                    normalize_advantage=False, verbose=1, use_sde=True, tensorboard_log="ppo_log/", device='cpu', target_kl=0.235)
-       
+        # Working model
+        # model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0008), gamma=0.98, n_steps=4096,
+        #             gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.85, clip_range=0.3,
+        #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/", device='cpu', target_kl=0.235)
+        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0010), gamma=0.97, n_steps=4096,
+                    gae_lambda=0.90, ent_coef=0.0045, vf_coef=1, max_grad_norm=0.9, clip_range=0.325,
+                    normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/ppo_work/", device='cpu', target_kl=0.2)
         
         # Create Evaluation Callback to save model
         eval_callback = EvalCallback(envs, best_model_save_path='./train_test/',
@@ -118,8 +111,8 @@ class PPO_F1Tenth():
 
         # Save model with unique timestamp
         timestamp = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
-        model.save(f"./train/pp0_rew-f110-{timestamp}")
-        #model.save(f"./train/trp0-f110-{timestamp}")
+        model.save(f"./train/ppo_work/pp0_itr-f110-{timestamp}")
+
         
         return model
             
@@ -129,7 +122,6 @@ class PPO_F1Tenth():
         trained_model = self.train()
         
         # Evaluate the trained model
-        #self.evaluate_lstm(trained_model)
         self.evaluate(trained_model)
 
 # necessary for Python multi-processing

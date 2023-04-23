@@ -3,16 +3,14 @@ import numpy as np
 
 from gym import spaces
 import drivers
-import f110_gym.envs.laser_models as laser
-
-RACETRACK = 'TRACK_2'
 
 driver = drivers.FollowTheGap()
 
-
+"""
+    Helper Function
+    Converts value(s) from range to another ranges ---> [min, max]
+"""
 def convert_range(value, input_range, output_range):
-    # converts value(s) from range to another range
-    # ranges ---> [min, max]
     (in_min, in_max), (out_min, out_max) = input_range, output_range
     in_range = in_max - in_min
     out_range = out_max - out_min
@@ -20,11 +18,10 @@ def convert_range(value, input_range, output_range):
 
 class F110_Wrapped(gym.Wrapper):
     """
-    This is a wrapper for the F1Tenth Gym environment intended
-    for only one car.
+    This is a wrapper for the F1Tenth Gym environment.
     """
 
-    def __init__(self, env):
+    def __init__(self, env, init_step, finish_step, init_max_reward, finish_max_reward=None):
         super().__init__(env)
 
         # normalised action space, steer and speed
@@ -38,11 +35,10 @@ class F110_Wrapped(gym.Wrapper):
         # store allowed steering/speed/lidar ranges for normalisation
         self.s_min = self.env.params['s_min']
         self.s_max = self.env.params['s_max']
-        self.v_min = self.env.params['v_min']
-        #self.v_max = self.env.params['v_max']
-        self.v_max = 8.0
+        self.v_min = 0.0
+        self.v_max = 7.0
         self.lidar_min = 0
-        self.lidar_max = 30  # see ScanSimulator2D max_range
+        self.lidar_max = 40  # see ScanSimulator2D max_range
 
         # store car dimensions and some track info
         self.car_length = self.env.params['length']
@@ -58,6 +54,20 @@ class F110_Wrapped(gym.Wrapper):
         # set threshold for maximum angle of car, to prevent spinning
         self.max_theta = 100
         self.count = 0
+        
+        # Reward attributes
+        self.end_step = finish_step
+        self.start_step = init_step
+        self.start_max_reward = init_max_reward
+        
+        # set finishing maximum reward to be maximum possible speed by default
+        if finish_max_reward is None:
+            self.end_max_reward = self.v_max
+        else:
+            self.end_max_reward = finish_max_reward
+
+        # calculate slope for reward changing over time (steps)
+        self.reward_slope = (self.end_max_reward - self.start_max_reward) / (self.end_step - self.start_step)
 
     def step(self, action):
         
@@ -68,9 +78,6 @@ class F110_Wrapped(gym.Wrapper):
         obs, _, _, _ = self.env.step(np.array([action_convert]))
         ranges_scan = obs['scans'][0]
         
-        #print(observation['scans'][0])
-        # reward = lidar_reward
-        
         # Process LiDAR scan to obtain reward based on adaptive method Follow the Gap
         actions = []    
         speed, steer = driver.process_lidar(ranges_scan, action_convert)
@@ -79,12 +86,6 @@ class F110_Wrapped(gym.Wrapper):
         actions.append([steer, speed])
         actions = np.array(actions)
         
-        # actions.append(steer)
-        # actions.append(speed)
-        
-        # self.un_normalise_actions(actions)
-        # print(actions)
-    
         observation, lidar_reward, done, info = self.env.step(actions)
         reward += lidar_reward
 
@@ -93,28 +94,14 @@ class F110_Wrapped(gym.Wrapper):
         #eoins reward function
         vel_magnitude = np.linalg.norm(
             [observation['linear_vels_x'][0], observation['linear_vels_y'][0]])
-        reward = vel_magnitude #/10 maybe include if speed is having too much of an effect
-
-        # Reward function that returns percent of lap left
-        # globwaypoints = np.genfromtxt(f"maps/Catalunya/Catalunya_centerline.csv", delimiter=',')
-        
-        # if self.count < len(globwaypoints):
-        #     wx, wy = globwaypoints[self.count][:2]
-        #     X, Y = observation['poses_x'][0], observation['poses_y'][0]
-        #     dist = np.sqrt(np.power((X - wx), 2) + np.power((Y - wy), 2))
-        #     if dist > 2:
-        #         self.count += 1
-        #         complete = (self.count/len(globwaypoints)) * 0.5
-        #         #print("Percent complete: ", int(complete*100))
-        #         reward += complete
-        # else:
-        #     self.count = 0
+        reward = vel_magnitude
             
+        # Negative reward for collision
         if observation['collisions'][0]:
             self.count = 0
-            reward = -1 # Might try changing it to more negative reward
+            reward = -2
 
-        # end episode if car is spinning
+        # End episode if car is spinning
         if abs(observation['poses_theta'][0]) > self.max_theta:
             done = True
 
@@ -126,11 +113,12 @@ class F110_Wrapped(gym.Wrapper):
         if ang_magnitude > 5:
             reward = -(vel_magnitude/10)
 
+        # Reward the car for completing laps
         if self.env.lap_counts[0] > 0:
             self.count = 0
             reward += 1
             if self.env.lap_counts[0] > 1:
-                reward += 2
+                reward += 5
                 self.env.lap_counts[0] = 0
                 
         lidar_ranges = observation['scans'][0]
@@ -177,15 +165,21 @@ class F110_Wrapped(gym.Wrapper):
         # convert observations from normal lidar distances range to range [-1, 1]
         return convert_range(observations, [self.lidar_min, self.lidar_max], [-1, 1])
 
-    def update_map(self, map_name, map_extension, update_render=True):
-        self.env.map_name = map_name
-        self.env.map_ext = map_extension
-        self.env.update_map(f"{map_name}.yaml", map_extension)
-        if update_render and self.env.renderer:
-            self.env.renderer.close()
-            self.env.renderer = None
-
     def seed(self, seed):
         self.current_seed = seed
         np.random.seed(self.current_seed)
         print(f"Seed -> {self.current_seed}")
+        
+    def reward(self, reward):
+        # Base Case
+        if self.step_count < self.start_step:
+            return min(reward, self.start_max_reward)
+        
+        # For 800k steps
+        elif self.step_count > self.end_step:
+            return min(reward, self.end_max_reward)
+        
+        # 200k last steps, proportional reward between two step endpoints
+        else:
+            proportional_reward = self.start_max_reward + (self.step_count - self.start_step) * self.reward_slope
+            return min(reward, proportional_reward)

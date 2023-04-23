@@ -22,7 +22,7 @@ class FollowTheGap:
         
     def process_lidar(self, ranges, actions):
     
-        steer_ppo, speed_ppo = actions
+        _, speed_ppo = actions
         
         # The angles between each of the LiDAR points
         angle_LiDAR = (2*np.pi) / len(ranges)

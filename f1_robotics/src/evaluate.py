@@ -3,18 +3,16 @@ import numpy as np
 
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3 import PPO, A2C
-from sb3_contrib import TRPO, RecurrentPPO
+from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from wrapper import F110_Wrapped
 from stable_baselines3.common.monitor import Monitor
-from rewards import ThrottleMaxSpeedReward
-TRAIN_STEPS = 6 * np.power(10, 5)
+TRAIN_STEPS = 10 * np.power(10, 5)
 
 MIN_EVAL_EPISODES = 100
 # MAP_PATH = "maps/Austin/Austin_map"
 # MAP_PATH = "maps/Catalunya/Catalunya_map"
-MAP_PATH = "maps/TRACK_2"
+MAP_PATH = "maps/TRACK_1"
 MAP_EXTENSION = ".png"
 
 def evaluate():
@@ -24,17 +22,13 @@ def evaluate():
                         map_ext=MAP_EXTENSION, num_agents=1)
 
         # Wrap evaluation environment
-        eval_env = F110_Wrapped(eval_env)
-        eval_env = ThrottleMaxSpeedReward(eval_env, 0, int(0.75 * TRAIN_STEPS), 2.5)
+        eval_env = F110_Wrapped(eval_env, 0, int(0.80 * TRAIN_STEPS), 1)
         eval_env.seed(np.random.randint(pow(2, 31) - 1))
         
         # Wrap environment on Monitor environment for helper functions
         eval_env = Monitor(eval_env)
         
-        # TODO: Add command arguments to test evaluation for different models based on algorithms
-        
-        #model = A2C.load("train_testA2C/best_model.zip")
-        model = RecurrentPPO.load("train/ANGLEpp0_lstm-f110-21-04-2023-19-57-22.zip")
+        model = PPO.load("train_test/best_model")
         
 
         # Use Helper function from sb3 library to understand the evaluation
@@ -43,17 +37,6 @@ def evaluate():
         #                                     reward_threshold=None, return_episode_rewards=True, warn=True)
         
         # print(policy_evaluation)
-        
-        lstm_states = None
-        num_envs = 1
-        # Episode start signals are used to reset the lstm states
-        episode_starts = np.ones((num_envs,), dtype=bool)
-        obs = eval_env.reset()
-        while True:
-            action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
-            obs, rewards, dones, info = eval_env.step(action)
-            episode_starts = dones
-            eval_env.render()
         
         '''
         Mean reward per episode, std of reward per episode. Returns ([float], [int]) when return_episode_rewards is True,
@@ -73,17 +56,17 @@ def evaluate():
         Observe that 2820 -> 22749 is a complete+ lap.
         """
         # Simulate a few episodes and render them, ctrl-c to cancel an episode
-        # episode = 0
-        # while episode < MIN_EVAL_EPISODES:
-        #     try:
-        #         episode += 1
-        #         obs = eval_env.reset()
-        #         done = False
-        #         while not done:
-        #             action, _ = model.predict(obs)
-        #             obs, reward, done, _ = eval_env.step(action)
-        #             eval_env.render()
-        #     except KeyboardInterrupt:
-        #         break
+        episode = 0
+        while episode < MIN_EVAL_EPISODES:
+            try:
+                episode += 1
+                obs = eval_env.reset()
+                done = False
+                while not done:
+                    action, _ = model.predict(obs)
+                    obs, reward, done, _ = eval_env.step(action)
+                    eval_env.render()
+            except KeyboardInterrupt:
+                break
                 
 evaluate()
