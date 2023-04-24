@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from typing import Callable
 from datetime import datetime
-from stable_baselines3 import PPO
 from sb3_contrib import TRPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
@@ -24,7 +23,7 @@ MAP_PATH = "maps/Catalunya/Catalunya_map"
 #MAP_PATH = "maps/TRACK_1"
 MAP_EXTENSION = ".png"
 
-class PPO_F1Tenth():
+class TRPO_F1Tenth():
     
     # Adaptive learning rate
     """
@@ -83,21 +82,9 @@ class PPO_F1Tenth():
         # Choose RL model and policy here
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #RuntimeError: CUDA error: out of memory whenever I use gpu
         
-        # Working model Track_1 PPO11
-        # model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0008), gamma=0.98, n_steps=4096,
-        #             gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.85, clip_range=0.3,
-        #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/", device='cpu', target_kl=0.235)
-        
-        # Woeking Model Track_2 PPO15
-        # model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0010), gamma=0.97, n_steps=4096,
-        #             gae_lambda=0.90, ent_coef=0.0045, vf_coef=1, max_grad_norm=0.9, clip_range=0.325,
-        #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/ppo_work/", device='cpu', target_kl=0.2)
-        
-        # Working Model Catalnuya PPO16
-        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0007), gamma=0.97, n_steps=4096,
-                    gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.8, clip_range=0.3,
-                    normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/ppo_work/", device='cpu', target_kl=0.3)
-        
+        model = TRPO("MlpPolicy", envs, learning_rate = self.linear_schedule(0.0007), n_steps = 4096,
+                     gamma = 0.97, gae_lambda = 0.925, target_kl=0.28, normalize_advantage=True, verbose=1,
+                     tensorboard_log="ppo_log/trpo/", device='cpu', sub_sampling_factor=2, n_critic_updates=5)
         
         # Create Evaluation Callback to save model
         eval_callback = EvalCallback(envs, best_model_save_path='./train_test/',
@@ -127,5 +114,5 @@ class PPO_F1Tenth():
 
 # necessary for Python multi-processing
 if __name__ == "__main__":
-    init = PPO_F1Tenth()
+    init = TRPO_F1Tenth()
     init.main()
