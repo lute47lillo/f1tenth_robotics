@@ -10,8 +10,8 @@ from stable_baselines3.common.monitor import Monitor
 TRAIN_STEPS = 10 * np.power(10, 5)
 
 MIN_EVAL_EPISODES = 100
-# MAP_PATH = "maps/Austin/Austin_map"
-# MAP_PATH = "maps/Catalunya/Catalunya_map"
+#MAP_PATH = "maps/Austin/Austin_map"
+#MAP_PATH = "maps/Catalunya/Catalunya_map"
 MAP_PATH = "maps/TRACK_1"
 MAP_EXTENSION = ".png"
 
@@ -22,13 +22,14 @@ def evaluate():
                         map_ext=MAP_EXTENSION, num_agents=1)
 
         # Wrap evaluation environment
-        eval_env = F110_Wrapped(eval_env, 0, int(0.80 * TRAIN_STEPS), 1)
+        eval_env = F110_Wrapped(eval_env, 0, int(0.85 * TRAIN_STEPS), 1)
         eval_env.seed(np.random.randint(pow(2, 31) - 1))
         
         # Wrap environment on Monitor environment for helper functions
         eval_env = Monitor(eval_env)
         
-        model = PPO.load("train_test/best_model")
+        model = PPO.load("train/ppo_work/1MPPO11_Working.zip")
+       
         
 
         # Use Helper function from sb3 library to understand the evaluation

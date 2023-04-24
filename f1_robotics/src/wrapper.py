@@ -148,7 +148,8 @@ class F110_Wrapped(gym.Wrapper):
         # convert position along line to position between walls at current point
         x, y = start_xy + rand_offset_scaled * np.array([1, slope]) / magnitude
         
-        starting_angle = 1.5708
+        #starting_angle = 1.5708
+        starting_angle = 2.09 # Austin
         
         # reset car with chosen pose
         observation, _, _, _ = self.env.reset(poses=np.array([[x, y, starting_angle]]))

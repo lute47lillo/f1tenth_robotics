@@ -5,6 +5,7 @@ import torch
 from typing import Callable
 from datetime import datetime
 from stable_baselines3 import PPO
+from sb3_contrib import TRPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
@@ -25,23 +26,15 @@ MAP_EXTENSION = ".png"
 
 class PPO_F1Tenth():
     
-    #adaptive learning rate
-    def linear_schedule(self, initial_value: float) -> Callable[[float], float]:
-        """
-        Linear learning rate schedule.
-        :param initial_value: Initial learning rate.
-        :return: schedule that computes
-        current learning rate depending on remaining progress
-        """
-
-        def func(progress_remaining: float) -> float:
-            """
+    # Adaptive learning rate
+    """
+            Linear learning rate schedule.
             Progress will decrease from 1 (beginning) to 0.
-            :param progress_remaining:
-            :return: current learning rate
-            """
+            Returns the current lr
+    """
+    def linear_schedule(self, initial_value: float) -> Callable[[float], float]:
+        def func(progress_remaining: float) -> float:
             return progress_remaining * initial_value
-
         return func
 
     # prepare the environment
@@ -90,13 +83,24 @@ class PPO_F1Tenth():
         # Choose RL model and policy here
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") #RuntimeError: CUDA error: out of memory whenever I use gpu
         
-        # Working model
+        # Working model Track_1 PPO11
         # model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0008), gamma=0.98, n_steps=4096,
         #             gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.85, clip_range=0.3,
         #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/", device='cpu', target_kl=0.235)
-        model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0010), gamma=0.97, n_steps=4096,
-                    gae_lambda=0.90, ent_coef=0.0045, vf_coef=1, max_grad_norm=0.9, clip_range=0.325,
-                    normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/ppo_work/", device='cpu', target_kl=0.2)
+        
+        # Working Model Catalnuya PPO16
+        # model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0007), gamma=0.97, n_steps=4096,
+        #             gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.8, clip_range=0.3,
+        #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/ppo_work/", device='cpu', target_kl=0.3)
+        
+        # Woeking Model Track_2 PPO15
+        # model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0010), gamma=0.97, n_steps=4096,
+        #             gae_lambda=0.90, ent_coef=0.0045, vf_coef=1, max_grad_norm=0.9, clip_range=0.325,
+        #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/ppo_work/", device='cpu', target_kl=0.2)
+        
+        model = TRPO("MlpPolicy", envs, learning_rate = self.linear_schedule(0.0007), n_steps = 4096,
+                     gamma = 0.97, gae_lambda = 0.925, target_kl=0.28, normalize_advantage=True, verbose=1,
+                     tensorboard_log="ppo_log/trpo/", device='cpu', sub_sampling_factor=2, n_critic_updates=5)
         
         # Create Evaluation Callback to save model
         eval_callback = EvalCallback(envs, best_model_save_path='./train_test/',
@@ -111,7 +115,7 @@ class PPO_F1Tenth():
 
         # Save model with unique timestamp
         timestamp = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
-        model.save(f"./train/ppo_work/pp0_itr-f110-{timestamp}")
+        model.save(f"./train/ppo_work/trp0_itr-f110-{timestamp}")
 
         
         return model
