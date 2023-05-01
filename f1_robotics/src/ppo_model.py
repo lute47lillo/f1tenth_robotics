@@ -88,7 +88,7 @@ class PPO_F1Tenth():
         #             gae_lambda=0.925, ent_coef=0.005, vf_coef=1, max_grad_norm=0.85, clip_range=0.3,
         #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/", device='cpu', target_kl=0.235)
         
-        # Woeking Model Track_2 PPO15
+        # Working Model Track_2 PPO15
         # model = PPO("MlpPolicy", envs, learning_rate=self.linear_schedule(0.0010), gamma=0.97, n_steps=4096,
         #             gae_lambda=0.90, ent_coef=0.0045, vf_coef=1, max_grad_norm=0.9, clip_range=0.325,
         #             normalize_advantage=True, verbose=1, tensorboard_log="ppo_log/ppo_work/", device='cpu', target_kl=0.2)
