@@ -11,6 +11,8 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 from torch.distributions import Categorical
 import torch.nn.functional as F
+from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.env_util import make_vec_env
 
 import gym
 from wrapperPPG import F110_PPG
@@ -74,12 +76,15 @@ def init_(m):
 # networks
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, hidden_dim, num_actions):
+    def __init__(self, state_dim, btw_dim, hidden_dim, num_actions):
         super().__init__()
+        n_btw_dim = int(btw_dim/2)
         self.net = nn.Sequential(
-            nn.Linear(state_dim, hidden_dim),
+            nn.Linear(state_dim, btw_dim),
             nn.Tanh(),
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(btw_dim, n_btw_dim),
+            nn.Tanh(),
+            nn.Linear(n_btw_dim, hidden_dim),
             nn.Tanh(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.Tanh()
@@ -126,6 +131,7 @@ class PPG:
         self,
         state_dim,
         num_actions,
+        btw_dim,
         actor_hidden_dim,
         critic_hidden_dim,
         epochs,
@@ -139,7 +145,7 @@ class PPG:
         eps_clip,
         value_clip
     ):
-        self.actor = Actor(state_dim, actor_hidden_dim, num_actions).to(device)
+        self.actor = Actor(state_dim, btw_dim, actor_hidden_dim, num_actions).to(device)
         #print("The actor: ", self.actor.parameters)
         self.critic = Critic(state_dim, critic_hidden_dim).to(device)
         self.opt_actor = Adam(self.actor.parameters(), lr=lr, betas=betas)
@@ -161,13 +167,13 @@ class PPG:
         torch.save({
             'actor': self.actor.state_dict(),
             'critic': self.critic.state_dict()
-        }, f'./ppg.pt')
+        }, f'./ppg2.pt')
 
     def load(self):
-        if not os.path.exists('./ppg.pt'):
+        if not os.path.exists('./ppg2.pt'):
             return
 
-        data = torch.load(f'./ppg.pt')
+        data = torch.load(f'./ppg2.pt')
         self.actor.load_state_dict(data['actor'])
         self.critic.load_state_dict(data['critic'])
 
@@ -282,8 +288,22 @@ class PPG:
                 update_network_(value_loss, self.opt_critic)
 
 class PPO_F1Tenth():
-
+    # prepare the environment
+    def wrap_env(self):
+        # Starts F110 gym        
+        env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
+                    map_ext=".png", num_agents=1)
+        
+        # Wrap basic gym with RL functions
+        env = F110_PPG(env, 0, int(0.85 * TRAIN_STEPS), 1)
+        return env
+    
     def train(self, load):
+        
+        # env = make_vec_env(self.wrap_env,
+        #                     n_envs=NUM_PROCESS,
+        #                     seed=np.random.randint(pow(2, 31) - 1),
+        #                     vec_env_cls=SubprocVecEnv)
         
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
@@ -298,35 +318,19 @@ class PPO_F1Tenth():
         memories = deque([])
         aux_memories = deque([])
 
-        agent = PPG(state_dim, num_actions, actor_hidden_dim = 32, critic_hidden_dim = 256, epochs = 1, epochs_aux = 6,
+        agent = PPG(state_dim, num_actions, btw_dim = 540, actor_hidden_dim = 32, critic_hidden_dim = 256, epochs = 1, epochs_aux = 6,
                     minibatch_size = 64, lr = 0.0005, betas = (0.9, 0.999), lam = 0.95, gamma = 0.99, beta_s = .01,
                     eps_clip = 0.2, value_clip = 0.4)
-
-        if load:
-            agent.load()
-            state = env.reset()
-            for _ in range(5000):
-                state = torch.Tensor(state[np.newaxis, :]).to(device)
-                action_probs, _ = agent.actor(state)
-                dist = Categorical(action_probs)
-                action = dist.sample().item()
-                state, rewards, dones, info = env.step(action)
-                env.render()
-                if dones == True:
-                    env.reset()
-            env.close()
-            
         
         # Constant Values TODO: Move them outside
         time = 0
         num_policy_updates = 0
         max_timesteps = 500
         # num_episodes = 5000 # TRAIN_STEPS
-        num_policy_updates_per_aux = 32
-        update_timesteps = 64
-        save_every = 1000
+        num_policy_updates_per_aux = 64
+        update_timesteps = 128
+        save_every = 150
         
-        actions_packed = [0,0]
         for eps in tqdm(range(TRAIN_STEPS), desc='episodes'): 
             state = env.reset()
             for timestep in range(max_timesteps):
@@ -360,27 +364,47 @@ class PPO_F1Tenth():
                         agent.learn_aux(aux_memories)
                         aux_memories.clear()
 
-                    updated = True
-
             if eps % save_every == 0:
                 agent.save()
         
-        # print(f"Training time {time.time() - start_time:.2f}s")
-        # print("Training cycle complete.")
-
-        # # Save model with unique timestamp
-        # timestamp = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
-        # agent.save(f"./train/ppg/ppg_itr-f110-{timestamp}")
-        
         return agent
+    
+    def evaluate(self):
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
+                    map_ext=".png", num_agents=1)
+
+        # Wrap basic gym with RL functions
+        env = F110_PPG(env, 0, int(0.85 * TRAIN_STEPS), 1)
+
+        state_dim = env.observation_space.shape[0] #1080
+        num_actions = env.action_space[0].n # Converted to 2 actions Discrete
+        
+        agent = PPG(state_dim, num_actions, btw_dim = 540, actor_hidden_dim = 32, critic_hidden_dim = 256, epochs = 1, epochs_aux = 6,
+                    minibatch_size = 64, lr = 0.0005, betas = (0.9, 0.999), lam = 0.95, gamma = 0.99, beta_s = .01,
+                    eps_clip = 0.2, value_clip = 0.4)
+
+        agent.load()
+        state = env.reset()
+        for _ in range(5000):
+            state = torch.from_numpy(state).float()
+            #state = torch.Tensor(state[np.newaxis, :]).to(device)
+            action_probs, _ = agent.actor(state)
+            dist = Categorical(action_probs)
+            action = dist.sample().item()
+            state, rewards, dones, info = env.step(action)
+            env.render()
+            if dones == True:
+                env.reset()
+        env.close()
         
     def main(self):
         
         # Train the model
-        trained_model = self.train(True)
+        #trained_model = self.train(True)
         
         # Evaluate the trained model
-        # self.evaluate(trained_model)
+        self.evaluate()
         
 # necessary for Python multi-processing
 if __name__ == "__main__":

@@ -5,7 +5,6 @@ import torch
 from typing import Callable
 from datetime import datetime
 from stable_baselines3 import PPO
-from sb3_contrib import TRPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback
@@ -20,7 +19,7 @@ SAVE_CHECK_FREQUENCY = int(TRAIN_STEPS / 100)
 MIN_EVAL_EPISODES = 10
 NUM_PROCESS = 4
 
-MAP_PATH = "maps/Catalunya/Catalunya_map"
+MAP_PATH = "/Users/lutelillo/Desktop/robotics_f1tenth/f1_robotics/src/maps/Catalunya/Catalunya_map"
 #MAP_PATH = "maps/TRACK_1"
 MAP_EXTENSION = ".png"
 

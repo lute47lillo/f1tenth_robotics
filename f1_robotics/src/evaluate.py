@@ -12,9 +12,9 @@ TRAIN_STEPS = 10 * np.power(10, 5)
 
 MIN_EVAL_EPISODES = 100
 #MAP_PATH = "maps/Austin/Austin_map"
-#MAP_PATH = "maps/Catalunya/Catalunya_map"
+MAP_PATH = "maps/Catalunya/Catalunya_map"
 #MAP_PATH = "maps/TRACK_1"
-MAP_PATH = "maps/TRACK_2"
+#MAP_PATH = "maps/TRACK_2"
 MAP_EXTENSION = ".png"
 
 def evaluate():

@@ -73,8 +73,8 @@ class F110_Wrapped(gym.Wrapper):
         
         # convert normalised actions (from RL algorithms) back to actual actions for simulator
         action_convert = self.un_normalise_actions(action)
-        
-        #print(action_convert)
+
+        print("The action taken: ", action_convert)
         obs, _, _, _ = self.env.step(np.array([action_convert]))
         ranges_scan = obs['scans'][0]
         
@@ -148,9 +148,9 @@ class F110_Wrapped(gym.Wrapper):
         # convert position along line to position between walls at current point
         x, y = start_xy + rand_offset_scaled * np.array([1, slope]) / magnitude
         
-        starting_angle = 1.5708 # TRACKS{1,2}
+        #starting_angle = 1.5708 # TRACKS{1,2}
         #starting_angle = 2.09 # Austin
-        #starting_angle = 0.8 # Catalunya
+        starting_angle = 0.8 # Catalunya
         
         
         # reset car with chosen pose
