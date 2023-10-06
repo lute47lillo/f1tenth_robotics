@@ -30,30 +30,30 @@ class F110_PPG(gym.Wrapper):
         super().__init__(env)
 
         # normalised action space, steer and speed. 10 types of actions.
-        self.action_space = spaces.Tuple((spaces.Discrete(36), spaces.Box(low=np.array(
+        self.action_space = spaces.Tuple((spaces.Discrete(70), spaces.Box(low=np.array(
             [-1.0, -1.0]), high=np.array([1.0, 1.0]), dtype=np.float)))
 
         # normalised observations, just take the lidar scans
         self.observation_space = spaces.Box(
             low=-1.0, high=1.0, shape=(1080,), dtype=np.float)
+      
         
-        # self.control_action_space = [(-0.8, -1), (-0.8, -0.5), (-0.8, 0), (-0.4, -1), (-0.4, -0.5), (-0.4, 0),
-        #                             (-0.2, -1), (-0.2, -0.5), (-0.2, 0), (0, -1), (0, -0.5), (0, 0),
-        #                             (0.8, -1), (0.8, -0.5), (0.8, 0), (0.4, -1), (0.4, -0.5), (0.4, 0),
-        #                             (0.2, -1), (0.2, -0.5), (0.2, 0),
-        #                             (-0.8, 1), (-0.8, 0.5), (-0.8, 0), (-0.4, 1), (-0.4, 0.5), (-0.4, 0),
-        #                             (-0.2, 1), (-0.2, 0.5), (-0.2, 0), (0, 1), (0, 0.5), (0, 0),
-        #                             (0.8, 1), (0.8, 0.5), (0.8, 0), (0.4, 1), (0.4, 0.5), (0.4, 0),
-        #                             (0.2, 1), (0.2, 0.5)]
-        
-        self.control_action_space = [(-0.8, -1), (-0.8, -0.5), (-0.8, 0), (-0.4, -1), (-0.4, -0.5), (-0.4, 0),
-                                    (-0.2, -1), (-0.2, -0.5), (-0.2, 0), (0, -1), (0, -0.5), (0, 0),
-                                    (0.8, -1), (0.8, -0.5), (0.8, 0), (0.4, -1), (0.4, -0.5), (0.4, 0),
-                                    (0.2, -1), (0.2, -0.5), (0.2, 0),
-                                    (-0.8, 1), (-0.8, 0.5), (-0.8, 0), (-0.4, 1), (-0.4, 0.5),
-                                    (-0.2, 1), (-0.2, 0.5), (0, 1), (0, 0.5),
-                                    (0.8, 1), (0.8, 0.5), (0.4, 1), (0.4, 0.5),
-                                    (0.2, 1), (0.2, 0.5)]
+        self.control_action_space = [
+                                    (-0.8, -1),(-0.8, -0.75), (-0.8, -0.5), (-0.8, -0.25), (-0.8, 0),
+                                    (-0.4, -1), (-0.4, -0.75), (-0.4, -0.5), (-0.4, -0.25), (-0.4, 0),
+                                    (-0.2, -1), (-0.2, -0.75), (-0.2, -0.5), (-0.2, -0.25), (-0.2, 0), 
+                                    (0, -1),    (0, -0.75),    (0, -0.5),    (0, -0.25),    (0, 0),
+                                    (0.8, -1),  (0.8, -0.75),  (0.8, -0.5),  (0.8, -0.25),  (0.8, 0), 
+                                    (0.4, -1),  (0.4, -0.75),  (0.4, -0.5),  (0.4, -0.25),  (0.4, 0),
+                                    (0.2, -1),  (0.2, -0.75),  (0.2, -0.5),  (0.2, -0.25),  (0.2, 0),
+                                    (-0.8, 1),  (-0.8, 0.75),  (-0.8, 0.5),  (-0.8, 0.25),  (-0.8, 0),
+                                    (-0.4, 1),  (-0.4, 0.85),  (-0.4, 0.75), (-0.4, 0.65),  (-0.4, 0.5),
+                                    (-0.2, 1),  (-0.2, 0.85),  (-0.2, 0.75), (-0.2, 0.65),  (-0.2, 0.5),
+                                    (0, 1),     (0, 0.85),     (0, 0.75),    (0, 0.65),     (0, 0.5),
+                                    (0.8, 1),   (0.8, 0.85),   (0.8, 0.75),  (0.8, 0.65),   (0.8, 0.5),
+                                    (0.4, 1),   (0.4, 0.85),   (0.4, 0.75),  (0.4, 0.65),   (0.4, 0.5),
+                                    (0.2, 1),   (0.2, 0.85),   (0.2, 0.75),  (0.2, 0.65),   (0.2, 0.5)
+                                    ]
 
         # store allowed steering/speed/lidar ranges for normalisation
         self.s_min = self.env.params['s_min']
@@ -99,7 +99,7 @@ class F110_PPG(gym.Wrapper):
         action_convert = self.map_discrete_to_continuous_action(action)
         action_convert = self.un_normalise_actions(action_convert)
         
-        print("The action take :", action_convert)
+      
         obs, _, _, _ = self.env.step(np.array([action_convert]))
         ranges_scan = obs['scans'][0]
         
@@ -124,7 +124,7 @@ class F110_PPG(gym.Wrapper):
         # Negative reward for collision
         if observation['collisions'][0]:
             self.count = 0
-            reward = -20
+            reward = -35
 
         # End episode if car is spinning
         if abs(observation['poses_theta'][0]) > self.max_theta:
@@ -141,13 +141,15 @@ class F110_PPG(gym.Wrapper):
         # Reward the car for completing laps
         if self.env.lap_counts[0] > 0:
             self.count = 0
-            reward += 1
+            reward += 30
             if self.env.lap_counts[0] > 1:
-                reward += 5
+                reward += 50
                 self.env.lap_counts[0] = 0
                 
         lidar_ranges = observation['scans'][0]
         obs = self.normalise_observations(lidar_ranges)
+        reward = self.reward(reward) + reward
+        
         return obs, reward, bool(done), info
 
     def reset(self, start_xy=None, direction=None):
@@ -176,7 +178,6 @@ class F110_PPG(gym.Wrapper):
         #starting_angle = 1.5708 # TRACKS{1,2}
         #starting_angle = 2.09 # Austin
         starting_angle = 0.8 # Catalunya
-        
         
         # reset car with chosen pose
         observation, _, _, _ = self.env.reset(poses=np.array([[x, y, starting_angle]]))

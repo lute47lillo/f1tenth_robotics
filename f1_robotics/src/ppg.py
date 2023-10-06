@@ -4,15 +4,11 @@ from collections import deque, namedtuple
 from tqdm import tqdm
 import numpy as np
 import torch
-import time
-from datetime import datetime
+import torch.nn.functional as F
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 from torch.distributions import Categorical
-import torch.nn.functional as F
-from stable_baselines3.common.vec_env import SubprocVecEnv
-from stable_baselines3.common.env_util import make_vec_env
 
 import gym
 from wrapperPPG import F110_PPG
@@ -146,7 +142,6 @@ class PPG:
         value_clip
     ):
         self.actor = Actor(state_dim, btw_dim, actor_hidden_dim, num_actions).to(device)
-        #print("The actor: ", self.actor.parameters)
         self.critic = Critic(state_dim, critic_hidden_dim).to(device)
         self.opt_actor = Adam(self.actor.parameters(), lr=lr, betas=betas)
         self.opt_critic = Adam(self.critic.parameters(), lr=lr, betas=betas)
@@ -167,13 +162,13 @@ class PPG:
         torch.save({
             'actor': self.actor.state_dict(),
             'critic': self.critic.state_dict()
-        }, f'./ppg2.pt')
+        }, f'./ppg3.pt')
 
     def load(self):
-        if not os.path.exists('./ppg2.pt'):
+        if not os.path.exists('./ppg3.pt'):
             return
 
-        data = torch.load(f'./ppg2.pt')
+        data = torch.load(f'./ppg3.pt')
         self.actor.load_state_dict(data['actor'])
         self.critic.load_state_dict(data['critic'])
 
@@ -288,24 +283,10 @@ class PPG:
                 update_network_(value_loss, self.opt_critic)
 
 class PPO_F1Tenth():
-    # prepare the environment
-    def wrap_env(self):
-        # Starts F110 gym        
-        env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
-                    map_ext=".png", num_agents=1)
-        
-        # Wrap basic gym with RL functions
-        env = F110_PPG(env, 0, int(0.85 * TRAIN_STEPS), 1)
-        return env
     
+    # prepare the environment    
     def train(self, load):
         
-        # env = make_vec_env(self.wrap_env,
-        #                     n_envs=NUM_PROCESS,
-        #                     seed=np.random.randint(pow(2, 31) - 1),
-        #                     vec_env_cls=SubprocVecEnv)
-        
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         env = gym.make('f110_gym:f110-v0', map=MAP_PATH,
                     map_ext=".png", num_agents=1)
 
@@ -319,8 +300,8 @@ class PPO_F1Tenth():
         aux_memories = deque([])
 
         agent = PPG(state_dim, num_actions, btw_dim = 540, actor_hidden_dim = 32, critic_hidden_dim = 256, epochs = 1, epochs_aux = 6,
-                    minibatch_size = 64, lr = 0.0005, betas = (0.9, 0.999), lam = 0.95, gamma = 0.99, beta_s = .01,
-                    eps_clip = 0.2, value_clip = 0.4)
+                    minibatch_size = 64, lr = 0.0005, betas = (0.9, 0.999), lam = 0.925, gamma = 0.97, beta_s = .01,
+                    eps_clip = 0.2, value_clip = 0.3)
         
         # Constant Values TODO: Move them outside
         time = 0
@@ -381,8 +362,8 @@ class PPO_F1Tenth():
         num_actions = env.action_space[0].n # Converted to 2 actions Discrete
         
         agent = PPG(state_dim, num_actions, btw_dim = 540, actor_hidden_dim = 32, critic_hidden_dim = 256, epochs = 1, epochs_aux = 6,
-                    minibatch_size = 64, lr = 0.0005, betas = (0.9, 0.999), lam = 0.95, gamma = 0.99, beta_s = .01,
-                    eps_clip = 0.2, value_clip = 0.4)
+                    minibatch_size = 64, lr = 0.0007, betas = (0.9, 0.999), lam = 0.925, gamma = 0.97, beta_s = .01,
+                    eps_clip = 0.2, value_clip = 0.3)
 
         agent.load()
         state = env.reset()

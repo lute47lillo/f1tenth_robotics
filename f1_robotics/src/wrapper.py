@@ -99,7 +99,7 @@ class F110_Wrapped(gym.Wrapper):
         # Negative reward for collision
         if observation['collisions'][0]:
             self.count = 0
-            reward = -2
+            reward = -50
 
         # End episode if car is spinning
         if abs(observation['poses_theta'][0]) > self.max_theta:
