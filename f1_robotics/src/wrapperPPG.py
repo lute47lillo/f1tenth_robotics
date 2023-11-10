@@ -112,6 +112,7 @@ class F110_PPG(gym.Wrapper):
         actions = np.array(actions)
         
         observation, lidar_reward, done, info = self.env.step(actions)
+        lidar_reward = self.reward(lidar_reward)
         reward += lidar_reward
 
         self.step_count += 1
@@ -148,7 +149,6 @@ class F110_PPG(gym.Wrapper):
                 
         lidar_ranges = observation['scans'][0]
         obs = self.normalise_observations(lidar_ranges)
-        reward = self.reward(reward) + reward
         
         return obs, reward, bool(done), info
 

@@ -162,13 +162,13 @@ class PPG:
         torch.save({
             'actor': self.actor.state_dict(),
             'critic': self.critic.state_dict()
-        }, f'./ppg3.pt')
+        }, f'./ppg4.pt')
 
     def load(self):
-        if not os.path.exists('./ppg3.pt'):
+        if not os.path.exists('./ppg4.pt'):
             return
 
-        data = torch.load(f'./ppg3.pt')
+        data = torch.load(f'./ppg4.pt')
         self.actor.load_state_dict(data['actor'])
         self.critic.load_state_dict(data['critic'])
 
@@ -300,7 +300,7 @@ class PPO_F1Tenth():
         aux_memories = deque([])
 
         agent = PPG(state_dim, num_actions, btw_dim = 540, actor_hidden_dim = 32, critic_hidden_dim = 256, epochs = 1, epochs_aux = 6,
-                    minibatch_size = 64, lr = 0.0005, betas = (0.9, 0.999), lam = 0.925, gamma = 0.97, beta_s = .01,
+                    minibatch_size = 64, lr = 0.00075, betas = (0.9, 0.999), lam = 0.925, gamma = 0.99, beta_s = .01,
                     eps_clip = 0.2, value_clip = 0.3)
         
         # Constant Values TODO: Move them outside
@@ -309,7 +309,7 @@ class PPO_F1Tenth():
         max_timesteps = 500
         # num_episodes = 5000 # TRAIN_STEPS
         num_policy_updates_per_aux = 64
-        update_timesteps = 128
+        update_timesteps = 32
         save_every = 150
         
         for eps in tqdm(range(TRAIN_STEPS), desc='episodes'): 
@@ -382,7 +382,7 @@ class PPO_F1Tenth():
     def main(self):
         
         # Train the model
-        #trained_model = self.train(True)
+        # trained_model = self.train(True)
         
         # Evaluate the trained model
         self.evaluate()
